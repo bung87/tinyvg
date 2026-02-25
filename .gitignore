@@ -1,0 +1,25 @@
+*
+!**/
+!*.*
+*.log
+nimcache/
+build/
+docs/build/
+.cache
+.DS_Store
+.vscode
+.idea/
+htmldocs/
+*.exe
+*.dll
+*.orig
+*.bak
+*.bck
+* - Copy.*
+* - Copy (?).*
+
+*.out
+nimble.develop
+nimble.paths
+nimbledeps
+.nimpacker_cache
