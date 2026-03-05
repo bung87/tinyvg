@@ -297,11 +297,14 @@ proc preprocessSvg*(svgDoc: var SvgDocument) =
     let next = svgDoc.elements[i + 1]
     
     # Check if we have: fill-A, no-fill, fill-A pattern (hole detection)
-    # Only merge when prev and next have the same fill color
+    # Only merge when:
+    # 1. prev and next have the same fill color
+    # 2. curr is significantly smaller than prev (likely a hole, not a separate shape)
     if prev.kind == svgPath and prev.d.len > 0 and prev.fillSet and
        curr.kind == svgPath and curr.d.len > 0 and not curr.fillSet and
        next.kind == svgPath and next.d.len > 0 and next.fillSet and
-       prev.fill == next.fill:
+       prev.fill == next.fill and
+       curr.d.len < prev.d.len div 4:  # Hole should be much smaller than container
       # The current no-fill path is a hole in the shape
       # Merge the hole path into the previous fill path (to maintain drawing order)
       svgDoc.elements[i - 1].d = prev.d & " " & curr.d
