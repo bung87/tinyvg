@@ -282,11 +282,11 @@ proc preprocessSvg*(svgDoc: var SvgDocument) =
   ## Preprocess SVG document to prepare it for conversion
   ## - Merges paths without fill that are between two paths with the SAME fill color
   ##   (for hole creation using evenodd fill rule)
-  ## - Clears paths that had clip-path and have no fill (clip path elements)
+  ## - Clears pure clip path elements (paths that only serve as clip definitions)
   ## - Clears clip-path flags (clip paths not supported)
   
   # First, merge paths without fill that are "sandwiched" between two paths with the same fill color.
-  # This indicates the no-fill path is a hole in that shape.
+  # This indicates the no-fill path is a hole in the shape.
   # Example: fill=#fff, no-fill, fill=#fff → the no-fill path is a hole
   # Example: fill=#abc, no-fill, fill=#fff → the no-fill path is NOT a hole (separate outline)
   # Process from right to left to avoid size changes affecting subsequent comparisons
@@ -296,22 +296,15 @@ proc preprocessSvg*(svgDoc: var SvgDocument) =
     let curr = svgDoc.elements[i]
     let next = svgDoc.elements[i + 1]
     
-    # Check if we have: fill-A, no-fill, fill-A pattern
+    # Check if we have: fill-A, no-fill, fill-A pattern (hole detection)
+    # Only merge when prev and next have the same fill color
     if prev.kind == svgPath and prev.d.len > 0 and prev.fillSet and
        curr.kind == svgPath and curr.d.len > 0 and not curr.fillSet and
        next.kind == svgPath and next.d.len > 0 and next.fillSet and
        prev.fill == next.fill:
-      # The current no-fill path is a hole in the shape defined by prev/next
-      # Determine whether to merge into prev or next based on relative sizes
-      # If curr is larger than prev, it's likely a hole in next
-      let mergeIntoNext = curr.d.len > prev.d.len
-      
-      if mergeIntoNext:
-        # Merge into next fill path
-        svgDoc.elements[i + 1].d = curr.d & " " & next.d
-      else:
-        # Merge into previous fill path
-        svgDoc.elements[i - 1].d = prev.d & " " & curr.d
+      # The current no-fill path is a hole in the shape
+      # Merge the hole path into the previous fill path (to maintain drawing order)
+      svgDoc.elements[i - 1].d = prev.d & " " & curr.d
       
       # Clear the hole path
       svgDoc.elements[i].d = ""
@@ -320,16 +313,10 @@ proc preprocessSvg*(svgDoc: var SvgDocument) =
     else:
       i -= 1
   
-  # Then, clear clip-path flags and remove paths that were clip paths (but not merged holes)
+  # Clear clip-path flags - we don't support clip-path rendering
+  # but we keep the paths as they might be valid shapes
   for i in 0 ..< svgDoc.elements.len:
-    if svgDoc.elements[i].hasClipPath:
-      # This element was part of a clip path - clear it if it has no fill and wasn't already cleared
-      # (clip path elements shouldn't be rendered as filled shapes)
-      if svgDoc.elements[i].kind == svgPath and
-         not svgDoc.elements[i].fillSet and
-         svgDoc.elements[i].d.len > 0:
-        svgDoc.elements[i].d = ""
-      svgDoc.elements[i].hasClipPath = false
+    svgDoc.elements[i].hasClipPath = false
 
 proc svgToTinyVG*(svgDoc: var SvgDocument): TinyVGDocument =
   ## Convert an SVG document to TinyVG format
