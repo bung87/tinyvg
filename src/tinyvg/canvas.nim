@@ -276,9 +276,8 @@ proc generateRenderCommands*(doc: TinyVGDocument; ctxName: string = "ctx"; rende
         # Apply fill/stroke based on command type
         if cmd.kind in [fill_path, outline_fill_path]:
           generateStyleCode(renderer, cmd.fillStyle, doc.palette, true)
-          # Use default fill rule (nonzero) for most paths
-          # evenodd is only needed for complex paths with holes
-          renderer.line("ctx.fill();")
+          # Use evenodd fill rule for proper hole handling
+          renderer.line("ctx.fill('evenodd');")
         
         if cmd.kind in [draw_line_path, outline_fill_path]:
           generateStyleCode(renderer, cmd.lineStyle, doc.palette, false)
