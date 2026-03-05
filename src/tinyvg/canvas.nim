@@ -112,22 +112,33 @@ proc generateStyleCode(renderer: var CanvasRenderer, style: TinyVGStyle,
         renderer.line(fmt("gradient.addColorStop(1, '{colorToCSS(endColor)}');"))
       renderer.line(fmt("ctx.{styleProp} = gradient;"))
 
-proc generatePathNodeCode(renderer: var CanvasRenderer, node: TinyVGPathNode) =
+proc generatePathNodeCode(renderer: var CanvasRenderer, node: TinyVGPathNode, needMoveTo: var bool) =
   ## Generate code for a single path node
+  ## needMoveTo tracks if we need a moveTo instead of lineTo (after close or at start of subpath)
   case node.kind:
     of horiz:
       # Horizontal line to x, keeping current y
-      renderer.line(fmt("// Horizontal line to x={node.horizX}"))
-      renderer.line(fmt("ctx.lineTo({node.horizX}, curY);"))
+      if needMoveTo:
+        renderer.line(fmt("ctx.moveTo({node.horizX}, curY);"))
+        needMoveTo = false
+      else:
+        renderer.line(fmt("ctx.lineTo({node.horizX}, curY);"))
       renderer.line(fmt("curX = {node.horizX};"))
     of vert:
       # Vertical line to y, keeping current x
-      renderer.line(fmt("// Vertical line to y={node.vertY}"))
-      renderer.line(fmt("ctx.lineTo(curX, {node.vertY});"))
+      if needMoveTo:
+        renderer.line(fmt("ctx.moveTo(curX, {node.vertY});"))
+        needMoveTo = false
+      else:
+        renderer.line(fmt("ctx.lineTo(curX, {node.vertY});"))
       renderer.line(fmt("curY = {node.vertY};"))
     of line:
-      # Line to (x, y)
-      renderer.line(fmt("ctx.lineTo({node.lineX}, {node.lineY});"))
+      # Line to (x, y) - use moveTo if after close, otherwise lineTo
+      if needMoveTo:
+        renderer.line(fmt("ctx.moveTo({node.lineX}, {node.lineY});"))
+        needMoveTo = false
+      else:
+        renderer.line(fmt("ctx.lineTo({node.lineX}, {node.lineY});"))
       renderer.line(fmt("curX = {node.lineX}; curY = {node.lineY};"))
     of bezier:
       # Cubic Bezier curve
@@ -136,27 +147,32 @@ proc generatePathNodeCode(renderer: var CanvasRenderer, node: TinyVGPathNode) =
                        fmt("{node.bezierControl2.x}, {node.bezierControl2.y}, ") &
                        fmt("{node.bezierEndPoint.x}, {node.bezierEndPoint.y});"))
       renderer.line(fmt("curX = {node.bezierEndPoint.x}; curY = {node.bezierEndPoint.y};"))
+      needMoveTo = false
     of quadratic_bezier:
       # Quadratic Bezier curve
       renderer.line(fmt("ctx.quadraticCurveTo(") &
                        fmt("{node.quadControl.x}, {node.quadControl.y}, ") &
                        fmt("{node.quadEndPoint.x}, {node.quadEndPoint.y});"))
       renderer.line(fmt("curX = {node.quadEndPoint.x}; curY = {node.quadEndPoint.y};"))
+      needMoveTo = false
     of arc_ellipse:
       # Elliptical arc - use the renderArc helper
       renderer.line(fmt("renderArc(ctx, curX, curY, {node.arcRadiusX}, {node.arcRadiusY}, ") &
                        fmt("{node.arcAngle}, {node.arcLargeArc}, {node.arcSweep}, ") &
                        fmt("{node.arcEndPoint.x}, {node.arcEndPoint.y});"))
       renderer.line(fmt("curX = {node.arcEndPoint.x}; curY = {node.arcEndPoint.y};"))
+      needMoveTo = false
     of arc_circle:
       # Circular arc - use the renderArc helper
       renderer.line(fmt("renderArc(ctx, curX, curY, {node.circleRadius}, {node.circleRadius}, ") &
                        fmt("0, {node.circleLargeArc}, {node.circleSweep}, ") &
                        fmt("{node.circleEndPoint.x}, {node.circleEndPoint.y});"))
       renderer.line(fmt("curX = {node.circleEndPoint.x}; curY = {node.circleEndPoint.y};"))
+      needMoveTo = false
     of close:
       # Close path
       renderer.line("ctx.closePath();")
+      needMoveTo = true  # Next line operation should be moveTo
 
 proc generateRenderCommands*(doc: TinyVGDocument; ctxName: string = "ctx"; renderer: var CanvasRenderer) =
   ## Generate just the rendering commands without canvas setup
@@ -270,8 +286,9 @@ proc generateRenderCommands*(doc: TinyVGDocument; ctxName: string = "ctx"; rende
         renderer.line(fmt("var curY = {cmd.startPoint.y};"))
         renderer.line("ctx.moveTo(curX, curY);")
         
+        var needMoveTo = false  # First node already has moveTo from initialization
         for node in cmd.pathNodes:
-          generatePathNodeCode(renderer, node)
+          generatePathNodeCode(renderer, node, needMoveTo)
         
         # Apply fill/stroke based on command type
         if cmd.kind in [fill_path, outline_fill_path]:
