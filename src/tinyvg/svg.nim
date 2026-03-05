@@ -100,6 +100,10 @@ proc parseColor*(colorStr: string): TinyVGColor =
   if colorStr.len == 0 or colorStr == "none":
     return TinyVGColor(r: 0, g: 0, b: 0, a: 0)
   
+  # Handle currentColor keyword (uses current text color, default to black)
+  if colorStr.toLowerAscii() == "currentcolor":
+    return TinyVGColor(r: 0, g: 0, b: 0, a: 1.0)
+  
   # Handle hex colors
   if colorStr.startsWith("#"):
     var hex = colorStr[1..^1]
@@ -237,8 +241,21 @@ proc parseRadialGradient(node: XmlNode): SvgGradient =
     if child.kind == xnElement and child.tag == "stop":
       result.stops.add(parseGradientStop(child))
 
-proc parseSvgElement(node: XmlNode): SvgElement =
+type
+  InheritedAttrs = object
+    ## Attributes that can be inherited from parent elements
+    fill: string
+    fillSet: bool
+    stroke: string
+    strokeWidth: float32
+    strokeWidthSet: bool
+
+const currentColor* = "currentColor"
+  ## SVG keyword for current color
+
+proc parseSvgElement(node: XmlNode, inherit: InheritedAttrs = InheritedAttrs()): SvgElement =
   ## Parse an SVG element from XML node
+  ## Inherit attributes from parent element (as per SVG spec)
   if node.kind != xnElement:
     return SvgElement(kind: svgUnknown)
   
@@ -286,8 +303,19 @@ proc parseSvgElement(node: XmlNode): SvgElement =
   
   of "g":
     result = SvgElement(kind: svgGroup)
+    # Group can have its own attributes that children inherit
+    var groupInherit = inherit
+    if node.attrs.hasKey("fill"):
+      groupInherit.fill = node.attr("fill")
+      groupInherit.fillSet = true
+    if node.attrs.hasKey("stroke"):
+      groupInherit.stroke = node.attr("stroke")
+    if node.attrs.hasKey("stroke-width"):
+      groupInherit.strokeWidth = parseFloat32(node.attr("stroke-width"))
+      groupInherit.strokeWidthSet = true
+    
     for child in node:
-      let childElem = parseSvgElement(child)
+      let childElem = parseSvgElement(child, groupInherit)
       if childElem.kind != svgUnknown:
         result.children.add(childElem)
   
@@ -295,11 +323,19 @@ proc parseSvgElement(node: XmlNode): SvgElement =
     result = SvgElement(kind: svgUnknown)
     return
   
-  # Parse common attributes
-  result.fillSet = node.attrs.hasKey("fill")
-  result.fill = node.attr("fill")
-  result.stroke = node.attr("stroke")
-  result.strokeWidth = parseFloat32(node.attrOrDefault("stroke-width", "1"))
+  # Parse common attributes with inheritance support
+  result.fillSet = node.attrs.hasKey("fill") or inherit.fillSet
+  result.fill = if node.attrs.hasKey("fill"): node.attr("fill") else: inherit.fill
+  result.stroke = if node.attrs.hasKey("stroke"): node.attr("stroke") else: inherit.stroke
+  
+  # stroke-width: use inherited value if not set locally
+  if node.attrs.hasKey("stroke-width"):
+    result.strokeWidth = parseFloat32(node.attr("stroke-width"))
+  elif inherit.strokeWidthSet:
+    result.strokeWidth = inherit.strokeWidth
+  else:
+    result.strokeWidth = parseFloat32(node.attrOrDefault("stroke-width", "1"))
+  
   result.transform = node.attr("transform")
   result.opacity = parseFloat32(node.attrOrDefault("opacity", "1"))
   result.hasClipPath = node.attr("clip-path").len > 0
@@ -340,6 +376,17 @@ proc parseSvg*(data: string): SvgDocument =
   if result.height == 0:
     result.height = int(result.viewBox.height)
   
+  # Extract root element attributes for inheritance
+  var rootInherit = InheritedAttrs()
+  if root.attrs.hasKey("fill"):
+    rootInherit.fill = root.attr("fill")
+    rootInherit.fillSet = true
+  if root.attrs.hasKey("stroke"):
+    rootInherit.stroke = root.attr("stroke")
+  if root.attrs.hasKey("stroke-width"):
+    rootInherit.strokeWidth = parseFloat32(root.attr("stroke-width"))
+    rootInherit.strokeWidthSet = true
+  
   # Parse child elements
   for child in root:
     case child.tag:
@@ -373,7 +420,7 @@ proc parseSvg*(data: string): SvgDocument =
       if grad.id.len > 0:
         result.gradients[grad.id] = grad
     else:
-      let elem = parseSvgElement(child)
+      let elem = parseSvgElement(child, rootInherit)
       if elem.kind != svgUnknown:
         result.elements.add(elem)
 
