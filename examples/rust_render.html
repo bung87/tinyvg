@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Rust Logo - TinyVG Render</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 40px;
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      color: white;
+      margin-bottom: 10px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    .subtitle {
+      color: rgba(255,255,255,0.8);
+      margin-bottom: 30px;
+    }
+    .container {
+      display: flex;
+      gap: 40px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 30px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      text-align: center;
+    }
+    .card h2 {
+      margin-top: 0;
+      color: #333;
+      font-size: 18px;
+    }
+    canvas {
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      background: white;
+    }
+    .stats {
+      margin-top: 30px;
+      background: white;
+      border-radius: 16px;
+      padding: 25px 40px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    .stats h3 {
+      margin-top: 0;
+      color: #333;
+    }
+    .stats table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    .stats td {
+      padding: 8px 20px;
+      border-bottom: 1px solid #eee;
+    }
+    .stats td:first-child {
+      font-weight: bold;
+      color: #666;
+      text-align: right;
+    }
+    .stats td:last-child {
+      color: #333;
+      text-align: left;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-left: 10px;
+    }
+    .badge-success {
+      background: #4caf50;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <h1>Rust Logo</h1>
+  <p class="subtitle">SVG to TinyVG Conversion Example</p>
+  
+  <div class="container">
+    <div class="card">
+      <h2>Original SVG</h2>
+      <img src="lang/rust.svg" width="400" height="400" alt="Rust SVG">
+    </div>
+    
+    <div class="card">
+      <h2>TinyVG Rendered</h2>
+      <canvas id="tvgCanvas" width="400" height="400"></canvas>
+    </div>
+  </div>
+  
+  <div class="stats">
+    <h3>Conversion Statistics</h3>
+    <table>
+      <tr>
+        <td>Canvas Size:</td>
+        <td>128 x 128</td>
+      </tr>
+      <tr>
+        <td>Scale Factor:</td>
+        <td>1.0</td>
+      </tr>
+      <tr>
+        <td>Color Palette:</td>
+        <td>1 colors</td>
+      </tr>
+      <tr>
+        <td>Draw Commands:</td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td>SVG File Size:</td>
+        <td>5897 bytes</td>
+      </tr>
+      <tr>
+        <td>TinyVG File Size:</td>
+        <td>5226 bytes <span class="badge badge-success">11.4% smaller</span></td>
+      </tr>
+    </table>
+  </div>
+  
+  <script>
+    // TinyVG rendering code
+    const canvas = document.getElementById('tvgCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Set white background
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Scale to fit canvas while maintaining aspect ratio
+    const scaleX = canvas.width / 128;
+    const scaleY = canvas.height / 128;
+    const scale = Math.min(scaleX, scaleY) * 0.9;
+    
+    const offsetX = (canvas.width - 128 * scale) / 2;
+    const offsetY = (canvas.height - 128 * scale) / 2;
+    
+    // Add renderArc helper function for SVG arc rendering
+    function renderArc(ctx, x0, y0, rx, ry, phi, largeArc, sweep, x, y) {
+      if (rx === 0 || ry === 0) {
+        ctx.lineTo(x, y);
+        return;
+      }
+      rx = Math.abs(rx); ry = Math.abs(ry);
+      var phiRad = phi * Math.PI / 180;
+      var cosPhi = Math.cos(phiRad);
+      var sinPhi = Math.sin(phiRad);
+      var dx = (x0 - x) / 2;
+      var dy = (y0 - y) / 2;
+      var x1p = cosPhi * dx + sinPhi * dy;
+      var y1p = -sinPhi * dx + cosPhi * dy;
+      var lambda = (x1p * x1p) / (rx * rx) + (y1p * y1p) / (ry * ry);
+      if (lambda > 1) {
+        var sqrtLambda = Math.sqrt(lambda);
+        rx *= sqrtLambda;
+        ry *= sqrtLambda;
+      }
+      var factor = Math.sqrt(Math.max(0, (rx * rx * ry * ry - rx * rx * y1p * y1p - ry * ry * x1p * x1p) / (rx * rx * y1p * y1p + ry * ry * x1p * x1p)));
+      if (largeArc === sweep) factor = -factor;
+      var cxp = factor * rx * y1p / ry;
+      var cyp = -factor * ry * x1p / rx;
+      var cx = cosPhi * cxp - sinPhi * cyp + (x0 + x) / 2;
+      var cy = sinPhi * cxp + cosPhi * cyp + (y0 + y) / 2;
+      var theta1 = Math.atan2((y1p - cyp) / ry, (x1p - cxp) / rx);
+      var theta2 = Math.atan2((-y1p - cyp) / ry, (-x1p - cxp) / rx);
+      ctx.ellipse(cx, cy, rx, ry, phiRad, theta1, theta2, !sweep);
+    }
+    
+    ctx.save();
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(scale, scale);
+// Path command
+ctx.beginPath();
+var curX = 62.96;
+var curY = 0.242;
+var subpathStartX = 62.96;
+var subpathStartY = 0.242;
+ctx.moveTo(curX, curY);
+if (curX !== 62.96 || curY !== 0.242) {
+  ctx.lineTo(62.96, 0.242);
+}
+curX = 62.96; curY = 0.242;
+ctx.bezierCurveTo(62.728, 0.377, 61.757, 1.77, 60.8, 3.339);
+curX = 60.8; curY = 3.339;
+ctx.bezierCurveTo(58.399998, 7.2790003, 58.374, 7.281, 55.149998, 3.889);
+curX = 55.149998; curY = 3.889;
+ctx.bezierCurveTo(53.052, 1.681, 52.545, 1.277, 51.87, 1.2819998);
+curX = 51.87; curY = 1.2819998;
+ctx.bezierCurveTo(51.43, 1.2839998, 50.875, 1.4339998, 50.635, 1.6139998);
+curX = 50.635; curY = 1.6139998;
+ctx.bezierCurveTo(50.394997, 1.7939999, 49.718998, 3.2259998, 49.130997, 4.797);
+curX = 49.130997; curY = 4.797;
+ctx.bezierCurveTo(47.784996, 8.396999, 47.720997, 8.512, 46.975, 8.657);
+curX = 46.975; curY = 8.657;
+ctx.bezierCurveTo(46.515, 8.743, 45.632, 8.25, 43.511997, 6.7279997);
+curX = 43.511997; curY = 6.7279997;
+ctx.bezierCurveTo(41.947, 5.6029997, 40.412, 4.6829996, 40.100998, 4.6829996);
+curX = 40.100998; curY = 4.6829996;
+ctx.bezierCurveTo(38.809998, 4.6829996, 38.446, 5.3889995, 37.830997, 9.083);
+curX = 37.830997; curY = 9.083;
+ctx.bezierCurveTo(37.051, 13.780001, 37.076996, 13.764, 32.843, 11.841);
+curX = 32.843; curY = 11.841;
+ctx.bezierCurveTo(31.133, 11.065, 29.512999, 10.431, 29.239998, 10.431);
+curX = 29.239998; curY = 10.431;
+ctx.bezierCurveTo(28.965998, 10.431, 28.447998, 10.724, 28.089998, 11.083);
+curX = 28.089998; curY = 11.083;
+ctx.bezierCurveTo(27.437998, 11.735001, 27.436998, 11.738, 27.614998, 15.329);
+curX = 27.614998; curY = 15.329;
+if (curX !== 27.792997 || curY !== 18.924) {
+  ctx.lineTo(27.792997, 18.924);
+}
+curX = 27.792997; curY = 18.924;
+if (curX !== 27.112997 || curY !== 19.288) {
+  ctx.lineTo(27.112997, 19.288);
+}
+curX = 27.112997; curY = 19.288;
+ctx.bezierCurveTo(26.510998, 19.61, 26.095997, 19.571, 23.428997, 18.94);
+curX = 23.428997; curY = 18.94;
+ctx.bezierCurveTo(19.948997, 18.118, 19.212997, 18.140001, 18.508997, 19.09);
+curX = 18.508997; curY = 19.09;
+if (curX !== 17.992996 || curY !== 19.783) {
+  ctx.lineTo(17.992996, 19.783);
+}
+curX = 17.992996; curY = 19.783;
+if (curX !== 18.684996 || curY !== 22.747002) {
+  ctx.lineTo(18.684996, 22.747002);
+}
+curX = 18.684996; curY = 22.747002;
+ctx.bezierCurveTo(19.064995, 24.377, 19.429996, 25.947002, 19.498995, 26.234001);
+curX = 19.498995; curY = 26.234001;
+ctx.bezierCurveTo(19.565994, 26.521002, 19.448996, 26.980001, 19.238995, 27.254002);
+curX = 19.238995; curY = 27.254002;
+ctx.bezierCurveTo(18.890995, 27.702002, 18.521996, 27.744001, 15.298994, 27.694002);
+curX = 15.298994; curY = 27.694002;
+ctx.bezierCurveTo(9.846994, 27.608002, 9.537994, 28.076002, 11.788994, 32.994003);
+curX = 11.788994; curY = 32.994003;
+ctx.bezierCurveTo(12.506994, 34.554005, 13.093994, 35.974003, 13.093994, 36.144005);
+curX = 13.093994; curY = 36.144005;
+ctx.bezierCurveTo(13.093994, 37.042004, 12.376994, 37.368004, 9.299994, 37.871006);
+curX = 9.299994; curY = 37.871006;
+ctx.bezierCurveTo(7.5779943, 38.151005, 6.0819945, 38.381004, 5.9739943, 38.381004);
+curX = 5.9739943; curY = 38.381004;
+ctx.bezierCurveTo(5.8669944, 38.381004, 5.5439944, 38.616005, 5.2569942, 38.903004);
+curX = 5.2569942; curY = 38.903004;
+ctx.bezierCurveTo(4.3199944, 39.839005, 4.5859942, 40.719, 6.7099943, 43.717003);
+curX = 6.7099943; curY = 43.717003;
+ctx.bezierCurveTo(9.355994, 47.452003, 9.3519945, 47.467003, 4.9799943, 49.138004);
+curX = 4.9799943; curY = 49.138004;
+ctx.bezierCurveTo(0.0089941025, 51.040005, -0.09200573, 51.508003, 3.6929944, 55.098003);
+curX = 3.6929944; curY = 55.098003;
+ctx.bezierCurveTo(7.2179947, 58.442005, 7.2229943, 58.393005, 3.2319944, 60.902004);
+curX = 3.2319944; curY = 60.902004;
+ctx.bezierCurveTo(0.208, 62.8, 0.162, 62.846, 0.085, 63.876);
+curX = 0.085; curY = 63.876;
+ctx.bezierCurveTo(-0.008000001, 65.129, 0.013999999, 65.151, 3.6230001, 67.356);
+curX = 3.6230001; curY = 67.356;
+ctx.bezierCurveTo(7.193, 69.536, 7.193, 69.602005, 3.69, 72.916);
+curX = 3.69; curY = 72.916;
+ctx.bezierCurveTo(-0.078, 76.48, 0.038, 77.0, 5.013, 78.877);
+curX = 5.013; curY = 78.877;
+ctx.bezierCurveTo(9.360001, 80.517, 9.366, 80.537, 6.715, 84.270996);
+curX = 6.715; curY = 84.270996;
+ctx.bezierCurveTo(5.2130003, 86.38799, 4.734, 87.270996, 4.734, 87.923996);
+curX = 4.734; curY = 87.923996;
+ctx.bezierCurveTo(4.734, 89.146996, 5.3710003, 89.459, 9.174, 90.098);
+curX = 9.174; curY = 90.098;
+ctx.bezierCurveTo(12.38, 90.638, 13.094, 90.955, 13.094, 91.839);
+curX = 13.094; curY = 91.839;
+ctx.bezierCurveTo(13.094, 92.020996, 12.506, 93.451, 11.787, 95.016);
+curX = 11.787; curY = 95.016;
+ctx.bezierCurveTo(9.551, 99.886, 9.806, 100.291, 15.097, 100.291);
+curX = 15.097; curY = 100.291;
+ctx.bezierCurveTo(20.027, 100.291, 19.896, 100.141, 18.834, 104.585);
+curX = 18.834; curY = 104.585;
+ctx.bezierCurveTo(18.034, 107.935, 18.021, 108.576996, 18.746, 109.3);
+curX = 18.746; curY = 109.3;
+ctx.bezierCurveTo(19.300001, 109.856, 20.346, 109.79401, 23.616001, 109.011);
+curX = 23.616001; curY = 109.011;
+ctx.bezierCurveTo(26.115002, 108.415, 26.553001, 108.374, 27.132002, 108.683);
+curX = 27.132002; curY = 108.683;
+if (curX !== 27.792002 || curY !== 109.036995) {
+  ctx.lineTo(27.792002, 109.036995);
+}
+curX = 27.792002; curY = 109.036995;
+if (curX !== 27.615002 || curY !== 112.631) {
+  ctx.lineTo(27.615002, 112.631);
+}
+curX = 27.615002; curY = 112.631;
+ctx.bezierCurveTo(27.437002, 116.224, 27.438002, 116.226, 28.090002, 116.879);
+curX = 28.090002; curY = 116.879;
+ctx.bezierCurveTo(28.448002, 117.239, 28.974003, 117.531, 29.255001, 117.531);
+curX = 29.255001; curY = 117.531;
+ctx.bezierCurveTo(29.537, 117.531, 31.158, 116.901, 32.859, 116.127);
+curX = 32.859; curY = 116.127;
+ctx.bezierCurveTo(37.079002, 114.211, 37.053, 114.195, 37.832, 118.877);
+curX = 37.832; curY = 118.877;
+ctx.bezierCurveTo(38.449, 122.588, 38.809002, 123.277, 40.126, 123.277);
+curX = 40.126; curY = 123.277;
+ctx.bezierCurveTo(40.453, 123.277, 41.956, 122.397, 43.466, 121.319);
+curX = 43.466; curY = 121.319;
+ctx.bezierCurveTo(46.12, 119.426, 46.808, 119.129, 47.515, 119.579);
+curX = 47.515; curY = 119.579;
+ctx.bezierCurveTo(47.697, 119.694, 48.405, 121.249, 49.086998, 123.034004);
+curX = 49.086998; curY = 123.034004;
+ctx.bezierCurveTo(50.089996, 125.659004, 50.456997, 126.344, 51.016, 126.61);
+curX = 51.016; curY = 126.61;
+ctx.bezierCurveTo(52.078, 127.12, 52.736, 126.71, 55.233997, 123.99);
+curX = 55.233997; curY = 123.99;
+ctx.bezierCurveTo(58.249996, 120.703995, 58.373997, 120.72, 60.836, 124.71);
+curX = 60.836; curY = 124.71;
+ctx.bezierCurveTo(63.556, 129.116, 64.26, 129.106, 67.048, 124.621);
+curX = 67.048; curY = 124.621;
+ctx.bezierCurveTo(69.45, 120.757, 69.422, 120.759, 72.669, 124.151);
+curX = 72.669; curY = 124.151;
+ctx.bezierCurveTo(74.826, 126.401, 75.284996, 126.761, 76.012, 126.761);
+curX = 76.012; curY = 126.761;
+ctx.bezierCurveTo(76.476, 126.761, 77.031, 126.586, 77.242004, 126.373);
+curX = 77.242004; curY = 126.373;
+ctx.bezierCurveTo(77.456, 126.16, 78.162, 124.587, 78.810005, 122.877);
+curX = 78.810005; curY = 122.877;
+ctx.bezierCurveTo(79.45901, 121.167, 80.131004, 119.677, 80.30501, 119.567);
+curX = 80.30501; curY = 119.567;
+ctx.bezierCurveTo(80.992004, 119.131004, 81.70301, 119.437004, 84.353004, 121.319);
+curX = 84.353004; curY = 121.319;
+ctx.bezierCurveTo(85.913, 122.427, 87.381004, 123.279, 87.73, 123.279);
+curX = 87.73; curY = 123.279;
+ctx.bezierCurveTo(89.026, 123.279, 89.494, 122.359, 90.032005, 118.744);
+curX = 90.032005; curY = 118.744;
+ctx.bezierCurveTo(90.492004, 115.662, 90.586006, 115.366005, 91.19201, 115.059006);
+curX = 91.19201; curY = 115.059006;
+ctx.bezierCurveTo(91.78801, 114.757, 92.14601, 114.85901, 94.94201, 116.129005);
+curX = 94.94201; curY = 116.129005;
+ctx.bezierCurveTo(96.643005, 116.899, 98.26501, 117.531006, 98.546005, 117.531006);
+curX = 98.546005; curY = 117.531006;
+ctx.bezierCurveTo(98.828, 117.531006, 99.36201, 117.229004, 99.73, 116.85901);
+curX = 99.73; curY = 116.85901;
+if (curX !== 100.402 || curY !== 116.18901) {
+  ctx.lineTo(100.402, 116.18901);
+}
+curX = 100.402; curY = 116.18901;
+if (curX !== 100.218 || curY !== 112.74101) {
+  ctx.lineTo(100.218, 112.74101);
+}
+curX = 100.218; curY = 112.74101;
+ctx.bezierCurveTo(100.041, 109.45101, 100.058, 109.27301, 100.582, 108.79801);
+curX = 100.582; curY = 108.79801;
+ctx.bezierCurveTo(101.122, 108.31001, 101.178, 108.31201, 104.197, 109.002014);
+curX = 104.197; curY = 109.002014;
+ctx.bezierCurveTo(107.853, 109.83701, 108.534996, 109.85902, 109.222, 109.17201);
+curX = 109.222; curY = 109.17201;
+ctx.bezierCurveTo(109.893, 108.502014, 109.886, 108.35401, 108.968, 104.48201);
+curX = 108.968; curY = 104.48201;
+ctx.bezierCurveTo(107.938, 100.13601, 107.8, 100.29201, 112.748, 100.29201);
+curX = 112.748; curY = 100.29201;
+ctx.bezierCurveTo(116.122, 100.29201, 116.498, 100.243004, 116.928, 99.769005);
+curX = 116.928; curY = 99.769005;
+ctx.bezierCurveTo(117.646, 98.976006, 117.475, 98.067, 116.032, 94.990005);
+curX = 116.032; curY = 94.990005;
+ctx.bezierCurveTo(115.303, 93.44, 114.712, 92.03001, 114.716995, 91.855);
+curX = 114.716995; curY = 91.855;
+ctx.bezierCurveTo(114.741, 90.941, 115.45999, 90.628006, 118.782, 90.088005);
+curX = 118.782; curY = 90.088005;
+ctx.bezierCurveTo(120.814995, 89.759, 122.335, 89.378006, 122.611, 89.128006);
+curX = 122.611; curY = 89.128006;
+ctx.bezierCurveTo(123.534, 88.295006, 123.195, 87.21001, 121.088, 84.255005);
+curX = 121.088; curY = 84.255005;
+ctx.bezierCurveTo(118.446, 80.552, 118.458, 80.517006, 122.687, 78.95801);
+curX = 122.687; curY = 78.95801;
+ctx.bezierCurveTo(127.751, 77.09201, 127.895996, 76.47001, 124.105995, 72.86801);
+curX = 124.105995; curY = 72.86801;
+ctx.bezierCurveTo(120.59599, 69.53301, 120.593994, 69.55101, 124.438995, 67.19101);
+curX = 124.438995; curY = 67.19101;
+ctx.bezierCurveTo(129.08699, 64.33801, 129.094, 63.69501, 124.520996, 60.85601);
+curX = 124.520996; curY = 60.85601;
+ctx.bezierCurveTo(120.588, 58.41601, 120.590996, 58.450012, 124.116, 55.103012);
+curX = 124.116; curY = 55.103012;
+ctx.bezierCurveTo(127.895996, 51.510014, 127.794, 51.040012, 122.821, 49.138012);
+curX = 122.821; curY = 49.138012;
+ctx.bezierCurveTo(118.433, 47.45901, 118.419, 47.41801, 121.086, 43.75801);
+curX = 121.086; curY = 43.75801;
+ctx.bezierCurveTo(122.673996, 41.57801, 123.068, 40.85501, 123.068, 40.10801);
+curX = 123.068; curY = 40.10801;
+ctx.bezierCurveTo(123.068, 38.80201, 122.482, 38.51001, 118.632, 37.88801);
+curX = 118.632; curY = 37.88801;
+ctx.bezierCurveTo(115.416, 37.368008, 114.708, 37.05301, 114.708, 36.13801);
+curX = 114.708; curY = 36.13801;
+ctx.bezierCurveTo(114.708, 35.96401, 115.296, 34.564007, 116.015, 33.02501);
+curX = 116.015; curY = 33.02501;
+ctx.bezierCurveTo(117.421, 30.012009, 117.618996, 28.80501, 116.823, 28.085009);
+curX = 116.823; curY = 28.085009;
+ctx.bezierCurveTo(116.395, 27.69801, 115.823, 27.642008, 112.756, 27.693008);
+curX = 112.756; curY = 27.693008;
+ctx.bezierCurveTo(109.548, 27.74701, 109.138, 27.701008, 108.69299, 27.25401);
+curX = 108.69299; curY = 27.25401;
+ctx.bezierCurveTo(108.20699, 26.766008, 108.21299, 26.69701, 108.97099, 23.529009);
+curX = 108.97099; curY = 23.529009;
+ctx.bezierCurveTo(109.90199, 19.64901, 109.90599, 19.554008, 109.14099, 18.835009);
+curX = 109.14099; curY = 18.835009;
+ctx.bezierCurveTo(108.36399, 18.10501, 107.87899, 18.117008, 104.31499, 18.956009);
+curX = 104.31499; curY = 18.956009;
+ctx.bezierCurveTo(101.71799, 19.568008, 101.28799, 19.609009, 100.69799, 19.293009);
+curX = 100.69799; curY = 19.293009;
+if (curX !== 100.02799 || curY !== 18.933008) {
+  ctx.lineTo(100.02799, 18.933008);
+}
+curX = 100.02799; curY = 18.933008;
+if (curX !== 100.21299 || curY !== 15.351008) {
+  ctx.lineTo(100.21299, 15.351008);
+}
+curX = 100.21299; curY = 15.351008;
+if (curX !== 100.39899 || curY !== 11.7710085) {
+  ctx.lineTo(100.39899, 11.7710085);
+}
+curX = 100.39899; curY = 11.7710085;
+if (curX !== 99.72899 || curY !== 11.101008) {
+  ctx.lineTo(99.72899, 11.101008);
+}
+curX = 99.72899; curY = 11.101008;
+ctx.bezierCurveTo(99.359985, 10.731009, 98.83799, 10.431008, 98.56599, 10.431008);
+curX = 98.56599; curY = 10.431008;
+ctx.bezierCurveTo(98.29599, 10.431008, 96.681984, 11.071009, 94.98299, 11.852009);
+curX = 94.98299; curY = 11.852009;
+ctx.bezierCurveTo(92.14499, 13.158009, 91.83999, 13.245008, 91.22598, 12.924009);
+curX = 91.22598; curY = 12.924009;
+ctx.bezierCurveTo(90.61398, 12.60401, 90.511986, 12.287009, 89.98898, 9.095009);
+curX = 89.98898; curY = 9.095009;
+ctx.bezierCurveTo(89.38599, 5.402009, 89.011986, 4.6830087, 87.70098, 4.6830087);
+curX = 87.70098; curY = 4.6830087;
+ctx.bezierCurveTo(87.389984, 4.6830087, 85.847984, 5.608009, 84.27498, 6.7380085);
+curX = 84.27498; curY = 6.7380085;
+ctx.bezierCurveTo(81.69098, 8.594008, 81.34498, 8.770008, 80.70098, 8.545009);
+curX = 80.70098; curY = 8.545009;
+ctx.bezierCurveTo(80.167984, 8.359009, 79.85798, 7.9550085, 79.47998, 6.9460087);
+curX = 79.47998; curY = 6.9460087;
+ctx.bezierCurveTo(79.19998, 6.2040086, 78.66298, 4.7740088, 78.28598, 3.7690086);
+curX = 78.28598; curY = 3.7690086;
+ctx.bezierCurveTo(77.52398, 1.7410085, 77.09898, 1.2870085, 75.95798, 1.2870085);
+curX = 75.95798; curY = 1.2870085;
+ctx.bezierCurveTo(75.32098, 1.2870085, 74.74498, 1.7450085, 72.67798, 3.8910086);
+curX = 72.67798; curY = 3.8910086;
+ctx.bezierCurveTo(69.42798, 7.2660084, 69.41698, 7.265009, 67.02798, 3.3460085);
+curX = 67.02798; curY = 3.3460085;
+ctx.bezierCurveTo(66.073, 1.78, 65.075, 0.382, 64.81, 0.24);
+curX = 64.81; curY = 0.24;
+ctx.bezierCurveTo(64.213, -0.08, 63.51, -0.08, 62.96, 0.242);
+curX = 62.96; curY = 0.242;
+ctx.closePath();
+curX = subpathStartX; curY = subpathStartY;
+ctx.moveTo(65.92, 12.04);
+subpathStartX = 65.92; subpathStartY = 12.04;
+curX = 65.92; curY = 12.04;
+ctx.bezierCurveTo(68.75, 14.054, 67.245995, 18.79, 63.775997, 18.79);
+curX = 63.775997; curY = 18.79;
+ctx.bezierCurveTo(60.407997, 18.79, 58.711998, 14.733001, 61.115997, 12.43);
+curX = 61.115997; curY = 12.43;
+ctx.bezierCurveTo(62.474, 11.13, 64.42, 10.971001, 65.921, 12.04);
+curX = 65.921; curY = 12.04;
+ctx.closePath();
+curX = subpathStartX; curY = subpathStartY;
+ctx.moveTo(62.363, 24.547);
+subpathStartX = 62.363; subpathStartY = 24.547;
+curX = 62.363; curY = 24.547;
+ctx.bezierCurveTo(64.218, 25.252, 64.979, 24.829, 69.215, 20.747002);
+curX = 69.215; curY = 20.747002;
+if (curX !== 72.396996 || curY !== 17.677002) {
+  ctx.lineTo(72.396996, 17.677002);
+}
+curX = 72.396996; curY = 17.677002;
+if (curX !== 73.743996 || curY !== 17.857002) {
+  ctx.lineTo(73.743996, 17.857002);
+}
+curX = 73.743996; curY = 17.857002;
+ctx.bezierCurveTo(77.968994, 18.417002, 86.370995, 22.107002, 91.199, 25.523003);
+curX = 91.199; curY = 25.523003;
+ctx.bezierCurveTo(95.634995, 28.663002, 101.531, 35.057003, 104.044, 39.453003);
+curX = 104.044; curY = 39.453003;
+if (curX !== 104.581 || curY !== 40.395004) {
+  ctx.lineTo(104.581, 40.395004);
+}
+curX = 104.581; curY = 40.395004;
+if (curX !== 102.201004 || curY !== 45.759003) {
+  ctx.lineTo(102.201004, 45.759003);
+}
+curX = 102.201004; curY = 45.759003;
+ctx.bezierCurveTo(100.89101, 48.709003, 99.819, 51.432003, 99.819, 51.812004);
+curX = 99.819; curY = 51.812004;
+ctx.bezierCurveTo(99.819, 52.690002, 100.395, 54.079002, 100.949, 54.538006);
+curX = 100.949; curY = 54.538006;
+ctx.bezierCurveTo(101.183, 54.733006, 103.406, 55.803005, 105.888, 56.916004);
+curX = 105.888; curY = 56.916004;
+if (curX !== 110.398 || curY !== 58.941006) {
+  ctx.lineTo(110.398, 58.941006);
+}
+curX = 110.398; curY = 58.941006;
+if (curX !== 110.576004 || curY !== 60.089005) {
+  ctx.lineTo(110.576004, 60.089005);
+}
+curX = 110.576004; curY = 60.089005;
+ctx.bezierCurveTo(110.80601, 61.584003, 110.836006, 65.256004, 110.628006, 66.299);
+curX = 110.628006; curY = 66.299;
+if (curX !== 110.465004 || curY !== 67.115005) {
+  ctx.lineTo(110.465004, 67.115005);
+}
+curX = 110.465004; curY = 67.115005;
+if (curX !== 107.89001 || curY !== 67.115005) {
+  ctx.lineTo(107.89001, 67.115005);
+}
+curX = 107.89001; curY = 67.115005;
+ctx.bezierCurveTo(104.90301, 67.115005, 105.13401, 66.84801, 104.97201, 70.511);
+curX = 104.97201; curY = 70.511;
+ctx.bezierCurveTo(104.85401, 73.167, 104.212006, 74.635, 102.75201, 75.586);
+curX = 102.75201; curY = 75.586;
+ctx.bezierCurveTo(100.37501, 77.137, 96.448006, 76.855995, 94.782005, 75.016);
+curX = 94.782005; curY = 75.016;
+ctx.bezierCurveTo(94.52701, 74.732, 94.03001, 73.311, 93.677, 71.855995);
+curX = 93.677; curY = 71.855995;
+ctx.bezierCurveTo(92.647, 67.602, 91.264, 65.215996, 88.484, 62.890995);
+curX = 88.484; curY = 62.890995;
+ctx.bezierCurveTo(87.606, 62.157993, 86.889, 61.472996, 86.889, 61.368996);
+curX = 86.889; curY = 61.368996;
+ctx.bezierCurveTo(86.889, 61.266994, 87.854, 60.453995, 89.034, 59.565994);
+curX = 89.034; curY = 59.565994;
+ctx.bezierCurveTo(93.33199, 56.325993, 95.80399, 52.553993, 96.074, 48.818993);
+curX = 96.074; curY = 48.818993;
+ctx.bezierCurveTo(96.592995, 41.692993, 90.916, 35.051994, 82.472, 32.898994);
+curX = 82.472; curY = 32.898994;
+ctx.bezierCurveTo(80.47, 32.388996, 79.615, 32.372993, 54.848, 32.372993);
+curX = 54.848; curY = 32.372993;
+ctx.bezierCurveTo(40.791, 32.372993, 29.288, 32.280994, 29.288, 32.168995);
+curX = 29.288; curY = 32.168995;
+ctx.bezierCurveTo(29.288, 31.905994, 32.413002, 28.873995, 34.253, 27.352995);
+curX = 34.253; curY = 27.352995;
+ctx.bezierCurveTo(39.307, 23.174995, 45.871, 19.887995, 52.67, 18.132996);
+curX = 52.67; curY = 18.132996;
+if (curX !== 55.019997 || curY !== 17.522995) {
+  ctx.lineTo(55.019997, 17.522995);
+}
+curX = 55.019997; curY = 17.522995;
+if (curX !== 58.359997 || curY !== 20.909996) {
+  ctx.lineTo(58.359997, 20.909996);
+}
+curX = 58.359997; curY = 20.909996;
+ctx.bezierCurveTo(60.198997, 22.772997, 61.999996, 24.409996, 62.362995, 24.546997);
+curX = 62.362995; curY = 24.546997;
+ctx.closePath();
+curX = subpathStartX; curY = subpathStartY;
+ctx.moveTo(20.3, 46.34);
+subpathStartX = 20.3; subpathStartY = 46.34;
+curX = 20.3; curY = 46.34;
+ctx.bezierCurveTo(21.838999, 47.348, 22.47, 49.88, 21.56, 51.402);
+curX = 21.56; curY = 51.402;
+ctx.bezierCurveTo(20.154999, 53.758, 16.594, 53.857002, 15.186999, 51.58);
+curX = 15.186999; curY = 51.58;
+ctx.bezierCurveTo(13.140999, 48.271004, 17.081999, 44.231003, 20.3, 46.340004);
+curX = 20.3; curY = 46.340004;
+ctx.closePath();
+curX = subpathStartX; curY = subpathStartY;
+ctx.moveTo(110.972, 46.470005);
+subpathStartX = 110.972; subpathStartY = 46.470005;
+curX = 110.972; curY = 46.470005;
+ctx.bezierCurveTo(114.998, 48.924004, 111.878, 54.963005, 107.568, 53.056004);
+curX = 107.568; curY = 53.056004;
+ctx.bezierCurveTo(104.691, 51.783005, 104.598, 47.850002, 107.413, 46.416004);
+curX = 107.413; curY = 46.416004;
+ctx.bezierCurveTo(108.587006, 45.816006, 109.936005, 45.837006, 110.973, 46.469006);
+curX = 110.973; curY = 46.469006;
+ctx.closePath();
+curX = subpathStartX; curY = subpathStartY;
+ctx.moveTo(32.163, 61.5);
+subpathStartX = 32.163; subpathStartY = 61.5;
+curX = 32.163; curY = 61.5;
+if (curX !== 32.163 || curY !== 76.520004) {
+  ctx.lineTo(32.163, 76.520004);
+}
+curX = 32.163; curY = 76.520004;
+if (curX !== 18.883 || curY !== 76.520004) {
+  ctx.lineTo(18.883, 76.520004);
+}
+curX = 18.883; curY = 76.520004;
+if (curX !== 18.356998 || curY !== 74.235) {
+  ctx.lineTo(18.356998, 74.235);
+}
+curX = 18.356998; curY = 74.235;
+ctx.bezierCurveTo(17.321, 69.735, 16.884998, 65.079, 17.145998, 61.266);
+curX = 17.145998; curY = 61.266;
+if (curX !== 17.327997 || curY !== 58.586998) {
+  ctx.lineTo(17.327997, 58.586998);
+}
+curX = 17.327997; curY = 58.586998;
+if (curX !== 21.892998 || curY !== 56.539997) {
+  ctx.lineTo(21.892998, 56.539997);
+}
+curX = 21.892998; curY = 56.539997;
+ctx.bezierCurveTo(24.756998, 55.256996, 26.598997, 54.277996, 26.835999, 53.914997);
+curX = 26.835999; curY = 53.914997;
+ctx.bezierCurveTo(27.873999, 52.330997, 27.776, 51.199997, 26.317999, 47.982);
+curX = 26.317999; curY = 47.982;
+if (curX !== 25.637999 || curY !== 46.48) {
+  ctx.lineTo(25.637999, 46.48);
+}
+curX = 25.637999; curY = 46.48;
+if (curX !== 32.161 || curY !== 46.48) {
+  ctx.lineTo(32.161, 46.48);
+}
+curX = 32.161; curY = 46.48;
+if (curX !== 32.161 || curY !== 61.5) {
+  ctx.lineTo(32.161, 61.5);
+}
+curX = 32.161; curY = 61.5;
+ctx.closePath();
+curX = subpathStartX; curY = subpathStartY;
+ctx.moveTo(70.39, 47.132);
+subpathStartX = 70.39; subpathStartY = 47.132;
+curX = 70.39; curY = 47.132;
+ctx.bezierCurveTo(73.233, 47.872, 74.735, 49.377, 74.739, 51.487);
+curX = 74.739; curY = 51.487;
+ctx.bezierCurveTo(74.741, 53.037, 73.974, 54.007, 72.069, 54.867);
+curX = 72.069; curY = 54.867;
+ctx.bezierCurveTo(70.721, 55.477, 70.507, 55.492, 62.006, 55.575);
+curX = 62.006; curY = 55.575;
+if (curX !== 53.32 || curY !== 55.659) {
+  ctx.lineTo(53.32, 55.659);
+}
+curX = 53.32; curY = 55.659;
+if (curX !== 53.32 || curY !== 46.739) {
+  ctx.lineTo(53.32, 46.739);
+}
+curX = 53.32; curY = 46.739;
+if (curX !== 61.102 || curY !== 46.739) {
+  ctx.lineTo(61.102, 46.739);
+}
+curX = 61.102; curY = 46.739;
+ctx.bezierCurveTo(67.18, 46.739, 69.214005, 46.824997, 70.39, 47.132);
+curX = 70.39; curY = 47.132;
+ctx.closePath();
+curX = subpathStartX; curY = subpathStartY;
+ctx.moveTo(67.456, 68.686005);
+subpathStartX = 67.456; subpathStartY = 68.686005;
+curX = 67.456; curY = 68.686005;
+ctx.bezierCurveTo(68.866005, 69.078, 70.532, 70.302, 71.386, 71.574005);
+curX = 71.386; curY = 71.574005;
+ctx.bezierCurveTo(72.284004, 72.911, 72.809, 74.65, 74.053, 80.41);
+curX = 74.053; curY = 80.41;
+ctx.bezierCurveTo(75.103004, 85.28001, 75.78, 86.87, 77.673004, 88.942);
+curX = 77.673004; curY = 88.942;
+ctx.bezierCurveTo(80.018005, 91.508, 79.47301, 91.408005, 91.187004, 91.408005);
+curX = 91.187004; curY = 91.408005;
+ctx.bezierCurveTo(96.797005, 91.408005, 101.385, 91.498, 101.385, 91.608);
+curX = 101.385; curY = 91.608;
+ctx.bezierCurveTo(101.385, 91.805, 97.522, 96.372, 97.355, 96.372);
+curX = 97.355; curY = 96.372;
+ctx.bezierCurveTo(97.30701, 96.372, 95.289, 95.950005, 92.871, 95.433);
+curX = 92.871; curY = 95.433;
+ctx.bezierCurveTo(86.042, 93.975, 85.796005, 94.145996, 84.229004, 101.465);
+curX = 84.229004; curY = 101.465;
+if (curX !== 83.221 || curY !== 106.167) {
+  ctx.lineTo(83.221, 106.167);
+}
+curX = 83.221; curY = 106.167;
+if (curX !== 82.311 || curY !== 106.615) {
+  ctx.lineTo(82.311, 106.615);
+}
+curX = 82.311; curY = 106.615;
+ctx.bezierCurveTo(80.793, 107.365, 75.857994, 108.907, 73.300995, 109.435);
+curX = 73.300995; curY = 109.435;
+ctx.bezierCurveTo(69.073, 110.305, 64.47299, 110.597, 60.429993, 110.256);
+curX = 60.429993; curY = 110.256;
+ctx.bezierCurveTo(53.53699, 109.671, 44.409992, 106.996994, 44.052994, 105.45599);
+curX = 44.052994; curY = 105.45599;
+ctx.bezierCurveTo(43.977993, 105.12899, 43.517994, 103.01299, 43.034992, 100.75199);
+curX = 43.034992; curY = 100.75199;
+ctx.bezierCurveTo(42.54999, 98.49199, 41.96099, 96.34799, 41.72499, 95.98799);
+curX = 41.72499; curY = 95.98799;
+ctx.bezierCurveTo(40.59499, 94.26399, 39.40699, 94.15799, 34.17799, 95.31399);
+curX = 34.17799; curY = 95.31399;
+ctx.bezierCurveTo(32.19799, 95.75399, 30.46999, 96.109985, 30.33799, 96.109985);
+curX = 30.33799; curY = 96.109985;
+ctx.bezierCurveTo(30.08999, 96.109985, 26.41499, 91.860985, 26.41499, 91.57498);
+curX = 26.41499; curY = 91.57498;
+ctx.bezierCurveTo(26.41499, 91.484985, 35.14299, 91.38098, 45.81099, 91.34498);
+curX = 45.81099; curY = 91.34498;
+if (curX !== 65.20599 || curY !== 91.27898) {
+  ctx.lineTo(65.20599, 91.27898);
+}
+curX = 65.20599; curY = 91.27898;
+if (curX !== 65.27599 || curY !== 84.38898) {
+  ctx.lineTo(65.27599, 84.38898);
+}
+curX = 65.27599; curY = 84.38898;
+ctx.bezierCurveTo(65.326, 79.52398, 65.257996, 77.391975, 65.04599, 77.13898);
+curX = 65.04599; curY = 77.13898;
+ctx.bezierCurveTo(64.81199, 76.85498, 63.56099, 76.780975, 59.03499, 76.780975);
+curX = 59.03499; curY = 76.780975;
+if (curX !== 53.32 || curY !== 76.780975) {
+  ctx.lineTo(53.32, 76.780975);
+}
+curX = 53.32; curY = 76.780975;
+if (curX !== 53.32 || curY !== 68.420975) {
+  ctx.lineTo(53.32, 68.420975);
+}
+curX = 53.32; curY = 68.420975;
+if (curX !== 59.917 || curY !== 68.421974) {
+  ctx.lineTo(59.917, 68.421974);
+}
+curX = 59.917; curY = 68.421974;
+ctx.bezierCurveTo(63.543, 68.42397, 66.937, 68.54198, 67.456, 68.685974);
+curX = 67.456; curY = 68.685974;
+ctx.closePath();
+curX = subpathStartX; curY = subpathStartY;
+ctx.moveTo(37.57, 100.02);
+subpathStartX = 37.57; subpathStartY = 100.02;
+curX = 37.57; curY = 100.02;
+ctx.bezierCurveTo(40.654, 101.899994, 39.175, 106.824, 35.527, 106.82);
+curX = 35.527; curY = 106.82;
+ctx.bezierCurveTo(31.787, 106.82, 30.400002, 101.94, 33.587, 99.994);
+curX = 33.587; curY = 99.994;
+ctx.bezierCurveTo(34.642002, 99.351006, 36.495003, 99.364006, 37.570004, 100.020004);
+curX = 37.570004; curY = 100.020004;
+ctx.closePath();
+curX = subpathStartX; curY = subpathStartY;
+ctx.moveTo(94.05, 100.226006);
+subpathStartX = 94.05; subpathStartY = 100.226006;
+curX = 94.05; curY = 100.226006;
+ctx.bezierCurveTo(95.562004, 101.33401, 96.065, 103.63901, 95.129005, 105.176);
+curX = 95.129005; curY = 105.176;
+ctx.bezierCurveTo(92.66901, 109.21, 86.517006, 106.003006, 88.57201, 101.757);
+curX = 88.57201; curY = 101.757;
+ctx.bezierCurveTo(89.58201, 99.672005, 92.267006, 98.920006, 94.05, 100.227005);
+curX = 94.05; curY = 100.227005;
+ctx.fillStyle = 'rgba(0, 0, 0, 1.0)';
+ctx.fill('evenodd');
+
+    ctx.restore();
+  </script>
+</body>
+</html>

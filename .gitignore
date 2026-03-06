@@ -17,7 +17,7 @@ htmldocs/
 *.bck
 * - Copy.*
 * - Copy (?).*
-
+examples/**/*.tvg
 *.out
 nimble.develop
 nimble.paths

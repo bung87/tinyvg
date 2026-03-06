@@ -184,7 +184,7 @@ proc main() =
     </div>
   </div>
   <script>
-    // SVG Arc to Canvas Bezier helper function
+    // SVG Arc to Canvas helper function using native ellipse method
     function renderArc(ctx, x0, y0, rx, ry, phi, largeArc, sweep, x, y) {
       if (rx === 0 || ry === 0) {
         ctx.lineTo(x, y);
@@ -212,38 +212,7 @@ proc main() =
       var cy = sinPhi * cxp + cosPhi * cyp + (y0 + y) / 2;
       var theta1 = Math.atan2((y1p - cyp) / ry, (x1p - cxp) / rx);
       var theta2 = Math.atan2((-y1p - cyp) / ry, (-x1p - cxp) / rx);
-      var deltaTheta = theta2 - theta1;
-      if (!sweep && deltaTheta > 0) deltaTheta -= 2 * Math.PI;
-      if (sweep && deltaTheta < 0) deltaTheta += 2 * Math.PI;
-      var segments = Math.ceil(Math.abs(deltaTheta) / (Math.PI / 2));
-      segments = Math.max(1, segments);
-      var eta1 = theta1;
-      var cosEta = Math.cos(eta1);
-      var sinEta = Math.sin(eta1);
-      var epX = cosPhi * rx * cosEta - sinPhi * ry * sinEta + cx;
-      var epY = sinPhi * rx * cosEta + cosPhi * ry * sinEta + cy;
-      var alpha = Math.sin(Math.abs(deltaTheta) / segments / 2) * 4 / 3;
-      for (var i = 0; i < segments; i++) {
-        var eta2 = eta1 + deltaTheta / segments;
-        var cosEta2 = Math.cos(eta2);
-        var sinEta2 = Math.sin(eta2);
-        var epX2 = cosPhi * rx * cosEta2 - sinPhi * ry * sinEta2 + cx;
-        var epY2 = sinPhi * rx * cosEta2 + cosPhi * ry * sinEta2 + cy;
-        var dX = -cosPhi * rx * sinEta - sinPhi * ry * cosEta;
-        var dY = -sinPhi * rx * sinEta + cosPhi * ry * cosEta;
-        var cp1x = epX + alpha * dX;
-        var cp1y = epY + alpha * dY;
-        dX = -cosPhi * rx * sinEta2 - sinPhi * ry * cosEta2;
-        dY = -sinPhi * rx * sinEta2 + cosPhi * ry * cosEta2;
-        var cp2x = epX2 - alpha * dX;
-        var cp2y = epY2 - alpha * dY;
-        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, epX2, epY2);
-        eta1 = eta2;
-        cosEta = cosEta2;
-        sinEta = sinEta2;
-        epX = epX2;
-        epY = epY2;
-      }
+      ctx.ellipse(cx, cy, rx, ry, phiRad, theta1, theta2, !sweep);
     }
 
     const canvas = document.getElementById('iconCanvas');

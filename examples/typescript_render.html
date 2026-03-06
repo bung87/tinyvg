@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>TypeScript Logo - TinyVG Render</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 40px;
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      color: white;
+      margin-bottom: 10px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    .subtitle {
+      color: rgba(255,255,255,0.8);
+      margin-bottom: 30px;
+    }
+    .container {
+      display: flex;
+      gap: 40px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 30px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      text-align: center;
+    }
+    .card h2 {
+      margin-top: 0;
+      color: #333;
+      font-size: 18px;
+    }
+    canvas {
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      background: white;
+    }
+    .stats {
+      margin-top: 30px;
+      background: white;
+      border-radius: 16px;
+      padding: 25px 40px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    .stats h3 {
+      margin-top: 0;
+      color: #333;
+    }
+    .stats table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    .stats td {
+      padding: 8px 20px;
+      border-bottom: 1px solid #eee;
+    }
+    .stats td:first-child {
+      font-weight: bold;
+      color: #666;
+      text-align: right;
+    }
+    .stats td:last-child {
+      color: #333;
+      text-align: left;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-left: 10px;
+    }
+    .badge-success {
+      background: #4caf50;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <h1>TypeScript Logo</h1>
+  <p class="subtitle">SVG to TinyVG Conversion Example</p>
+  
+  <div class="container">
+    <div class="card">
+      <h2>Original SVG</h2>
+      <img src="lang/typescript.svg" width="400" height="400" alt="TypeScript SVG">
+    </div>
+    
+    <div class="card">
+      <h2>TinyVG Rendered</h2>
+      <canvas id="tvgCanvas" width="400" height="400"></canvas>
+    </div>
+  </div>
+  
+  <div class="stats">
+    <h3>Conversion Statistics</h3>
+    <table>
+      <tr>
+        <td>Canvas Size:</td>
+        <td>128 x 128</td>
+      </tr>
+      <tr>
+        <td>Scale Factor:</td>
+        <td>1.0</td>
+      </tr>
+      <tr>
+        <td>Color Palette:</td>
+        <td>2 colors</td>
+      </tr>
+      <tr>
+        <td>Draw Commands:</td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td>SVG File Size:</td>
+        <td>943 bytes</td>
+      </tr>
+      <tr>
+        <td>TinyVG File Size:</td>
+        <td>984 bytes <span class="badge badge-success">-4.3% smaller</span></td>
+      </tr>
+    </table>
+  </div>
+  
+  <script>
+    // TinyVG rendering code
+    const canvas = document.getElementById('tvgCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Set white background
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Scale to fit canvas while maintaining aspect ratio
+    const scaleX = canvas.width / 128;
+    const scaleY = canvas.height / 128;
+    const scale = Math.min(scaleX, scaleY) * 0.9;
+    
+    const offsetX = (canvas.width - 128 * scale) / 2;
+    const offsetY = (canvas.height - 128 * scale) / 2;
+    
+    // Add renderArc helper function for SVG arc rendering
+    function renderArc(ctx, x0, y0, rx, ry, phi, largeArc, sweep, x, y) {
+      if (rx === 0 || ry === 0) {
+        ctx.lineTo(x, y);
+        return;
+      }
+      rx = Math.abs(rx); ry = Math.abs(ry);
+      var phiRad = phi * Math.PI / 180;
+      var cosPhi = Math.cos(phiRad);
+      var sinPhi = Math.sin(phiRad);
+      var dx = (x0 - x) / 2;
+      var dy = (y0 - y) / 2;
+      var x1p = cosPhi * dx + sinPhi * dy;
+      var y1p = -sinPhi * dx + cosPhi * dy;
+      var lambda = (x1p * x1p) / (rx * rx) + (y1p * y1p) / (ry * ry);
+      if (lambda > 1) {
+        var sqrtLambda = Math.sqrt(lambda);
+        rx *= sqrtLambda;
+        ry *= sqrtLambda;
+      }
+      var factor = Math.sqrt(Math.max(0, (rx * rx * ry * ry - rx * rx * y1p * y1p - ry * ry * x1p * x1p) / (rx * rx * y1p * y1p + ry * ry * x1p * x1p)));
+      if (largeArc === sweep) factor = -factor;
+      var cxp = factor * rx * y1p / ry;
+      var cyp = -factor * ry * x1p / rx;
+      var cx = cosPhi * cxp - sinPhi * cyp + (x0 + x) / 2;
+      var cy = sinPhi * cxp + cosPhi * cyp + (y0 + y) / 2;
+      var theta1 = Math.atan2((y1p - cyp) / ry, (x1p - cxp) / rx);
+      var theta2 = Math.atan2((-y1p - cyp) / ry, (-x1p - cxp) / rx);
+      ctx.ellipse(cx, cy, rx, ry, phiRad, theta1, theta2, !sweep);
+    }
+    
+    ctx.save();
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(scale, scale);
+// Path command
+ctx.beginPath();
+var curX = 22.67;
+var curY = 47.0;
+var subpathStartX = 22.67;
+var subpathStartY = 47.0;
+ctx.moveTo(curX, curY);
+if (curX !== 22.67 || curY !== 47.0) {
+  ctx.lineTo(22.67, 47.0);
+}
+curX = 22.67; curY = 47.0;
+if (curX !== 122.34 || curY !== 47.0) {
+  ctx.lineTo(122.34, 47.0);
+}
+curX = 122.34; curY = 47.0;
+if (curX !== 122.34 || curY !== 120.67) {
+  ctx.lineTo(122.34, 120.67);
+}
+curX = 122.34; curY = 120.67;
+if (curX !== 22.67 || curY !== 120.67) {
+  ctx.lineTo(22.67, 120.67);
+}
+curX = 22.67; curY = 120.67;
+ctx.closePath();
+curX = subpathStartX; curY = subpathStartY;
+ctx.fillStyle = 'rgba(255, 255, 255, 1.0)';
+ctx.fill('evenodd');
+
+// Path command
+ctx.beginPath();
+var curX = 1.5;
+var curY = 63.91;
+var subpathStartX = 1.5;
+var subpathStartY = 63.91;
+ctx.moveTo(curX, curY);
+if (curX !== 1.5 || curY !== 63.91) {
+  ctx.lineTo(1.5, 63.91);
+}
+curX = 1.5; curY = 63.91;
+if (curX !== 1.5 || curY !== 126.41) {
+  ctx.lineTo(1.5, 126.41);
+}
+curX = 1.5; curY = 126.41;
+if (curX !== 126.5 || curY !== 126.41) {
+  ctx.lineTo(126.5, 126.41);
+}
+curX = 126.5; curY = 126.41;
+if (curX !== 126.5 || curY !== 1.4100037) {
+  ctx.lineTo(126.5, 1.4100037);
+}
+curX = 126.5; curY = 1.4100037;
+if (curX !== 1.5 || curY !== 1.4100037) {
+  ctx.lineTo(1.5, 1.4100037);
+}
+curX = 1.5; curY = 1.4100037;
+ctx.closePath();
+curX = subpathStartX; curY = subpathStartY;
+ctx.closePath();
+curX = subpathStartX; curY = subpathStartY;
+ctx.moveTo(102.23, 58.91);
+subpathStartX = 102.23; subpathStartY = 58.91;
+curX = 102.23; curY = 58.91;
+renderArc(ctx, curX, curY, 15.56, 15.56, 0.0, false, true, 110.05, 63.41);
+curX = 110.05; curY = 63.41;
+renderArc(ctx, curX, curY, 20.58, 20.58, 0.0, false, true, 113.05, 67.41);
+curX = 113.05; curY = 67.41;
+ctx.bezierCurveTo(113.05, 67.57001, 107.65, 71.22, 104.36, 73.26);
+curX = 104.36; curY = 73.26;
+ctx.bezierCurveTo(104.24, 73.340004, 103.76, 72.82, 103.23, 72.03);
+curX = 103.23; curY = 72.03;
+renderArc(ctx, curX, curY, 7.09, 7.09, 0.0, false, false, 97.36, 68.5);
+curX = 97.36; curY = 68.5;
+ctx.bezierCurveTo(93.57, 68.24, 91.13, 70.23, 91.15, 73.5);
+curX = 91.15; curY = 73.5;
+renderArc(ctx, curX, curY, 4.58, 4.58, 0.0, false, false, 91.69, 75.84);
+curX = 91.69; curY = 75.84;
+ctx.bezierCurveTo(92.520004, 77.57, 94.07, 78.6, 98.93, 80.7);
+curX = 98.93; curY = 80.7;
+ctx.bezierCurveTo(107.88, 84.549995, 111.71, 87.09, 114.09, 90.7);
+curX = 114.09; curY = 90.7;
+ctx.bezierCurveTo(116.75, 94.7, 117.34, 101.159996, 115.53999, 105.939995);
+curX = 115.53999; curY = 105.939995;
+ctx.bezierCurveTo(113.53999, 111.13999, 108.63999, 114.67, 101.70999, 115.84);
+curX = 101.70999; curY = 115.84;
+renderArc(ctx, curX, curY, 38.32, 38.32, 0.0, false, true, 92.18999, 115.74);
+curX = 92.18999; curY = 115.74;
+renderArc(ctx, curX, curY, 23.0, 23.0, 0.0, false, true, 79.469986, 109.11);
+curX = 79.469986; curY = 109.11;
+ctx.bezierCurveTo(78.319984, 107.840004, 76.07999, 104.53, 76.219986, 104.29);
+curX = 76.219986; curY = 104.29;
+renderArc(ctx, curX, curY, 9.34, 9.34, 0.0, false, true, 77.36999, 103.56);
+curX = 77.36999; curY = 103.56;
+if (curX !== 82.0 || curY !== 101.0) {
+  ctx.lineTo(82.0, 101.0);
+}
+curX = 82.0; curY = 101.0;
+if (curX !== 85.59 || curY !== 98.92) {
+  ctx.lineTo(85.59, 98.92);
+}
+curX = 85.59; curY = 98.92;
+if (curX !== 86.34 || curY !== 100.03) {
+  ctx.lineTo(86.34, 100.03);
+}
+curX = 86.34; curY = 100.03;
+renderArc(ctx, curX, curY, 16.78, 16.78, 0.0, false, false, 91.079994, 104.57);
+curX = 91.079994; curY = 104.57;
+ctx.bezierCurveTo(95.079994, 106.67, 100.53999, 106.38, 103.23999, 103.95);
+curX = 103.23999; curY = 103.95;
+renderArc(ctx, curX, curY, 5.43, 5.43, 0.0, false, false, 103.92999, 97.03);
+curX = 103.92999; curY = 97.03;
+ctx.bezierCurveTo(102.92999, 95.64, 100.92999, 94.47, 95.34, 92.03);
+curX = 95.34; curY = 92.03;
+ctx.bezierCurveTo(88.89, 89.25, 86.11, 87.53, 83.56999, 84.79);
+curX = 83.56999; curY = 84.79;
+renderArc(ctx, curX, curY, 16.48, 16.48, 0.0, false, true, 80.13999, 78.54);
+curX = 80.13999; curY = 78.54;
+renderArc(ctx, curX, curY, 25.0, 25.0, 0.0, false, true, 79.91999, 70.54);
+curX = 79.91999; curY = 70.54;
+ctx.bezierCurveTo(81.24999, 64.31, 85.91999, 59.96, 92.73999, 58.670002);
+curX = 92.73999; curY = 58.670002;
+renderArc(ctx, curX, curY, 31.66, 31.66, 0.0, false, true, 102.22999, 58.93);
+curX = 102.22999; curY = 58.93;
+ctx.closePath();
+curX = subpathStartX; curY = subpathStartY;
+ctx.closePath();
+curX = subpathStartX; curY = subpathStartY;
+ctx.moveTo(72.89, 64.15);
+subpathStartX = 72.89; subpathStartY = 64.15;
+curX = 72.89; curY = 64.15;
+if (curX !== 72.89 || curY !== 69.270004) {
+  ctx.lineTo(72.89, 69.270004);
+}
+curX = 72.89; curY = 69.270004;
+if (curX !== 56.66 || curY !== 69.270004) {
+  ctx.lineTo(56.66, 69.270004);
+}
+curX = 56.66; curY = 69.270004;
+if (curX !== 56.66 || curY !== 115.5) {
+  ctx.lineTo(56.66, 115.5);
+}
+curX = 56.66; curY = 115.5;
+if (curX !== 45.15 || curY !== 115.5) {
+  ctx.lineTo(45.15, 115.5);
+}
+curX = 45.15; curY = 115.5;
+if (curX !== 45.15 || curY !== 69.26) {
+  ctx.lineTo(45.15, 69.26);
+}
+curX = 45.15; curY = 69.26;
+if (curX !== 28.88 || curY !== 69.26) {
+  ctx.lineTo(28.88, 69.26);
+}
+curX = 28.88; curY = 69.26;
+if (curX !== 28.88 || curY !== 64.26) {
+  ctx.lineTo(28.88, 64.26);
+}
+curX = 28.88; curY = 64.26;
+renderArc(ctx, curX, curY, 49.19, 49.19, 0.0, false, true, 29.0, 59.090004);
+curX = 29.0; curY = 59.090004;
+ctx.bezierCurveTo(29.08, 59.0, 39.0, 59.0, 51.0, 59.0);
+curX = 51.0; curY = 59.0;
+if (curX !== 72.83 || curY !== 59.0) {
+  ctx.lineTo(72.83, 59.0);
+}
+curX = 72.83; curY = 59.0;
+ctx.closePath();
+curX = subpathStartX; curY = subpathStartY;
+ctx.fillStyle = 'rgba(0, 122, 204, 1.0)';
+ctx.fill('evenodd');
+
+    ctx.restore();
+  </script>
+</body>
+</html>

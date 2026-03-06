@@ -2,13 +2,33 @@
 
 This document describes the current limitations of the `svgconv` module based on the TinyVG specification. While the converter handles common SVG constructs, several advanced features from both SVG and TinyVG specifications are not yet fully supported.
 
+## Recent Improvements (March 2026)
+
+### Path Command Support - COMPLETE
+All SVG path commands are now fully supported:
+- Arc commands (`A`, `a`) - Converted to TinyVG arc circle/ellipse nodes
+- Quadratic bezier (`Q`, `q`) - Converted to TinyVG quadratic bezier nodes
+- Smooth cubic bezier (`S`, `s`) - Properly converted
+- Smooth quadratic bezier (`T`, `t`) - Properly converted
+
+### Multiple Subpath Support
+SVG paths with multiple `M` (move) commands are now correctly handled:
+- Each subpath is properly closed before starting a new one
+- Subpath starting points are correctly tracked
+- Fill rules (evenodd) work correctly across subpaths
+
+### Canvas Rendering Improvements
+- Zero-length line segments are now skipped (reduces unnecessary draw calls)
+- Subpath start points are properly tracked for correct close path behavior
+- Native canvas `ellipse()` method is used for smooth arc rendering
+
 ## Currently Supported Features
 
 ### SVG Elements
-- `<path>` - Basic path data with move, line, cubic bezier, close path commands
+- `<path>` - Full path data support including move, line, cubic bezier, quadratic bezier, arc (circle/ellipse), and close path commands
 - `<rect>` - Rectangles with fill and stroke
-- `<circle>` - Circles (approximated as 32-sided polygons)
-- `<ellipse>` - Ellipses (approximated as 32-sided polygons)
+- `<circle>` - Circles (converted to TinyVG arc circles)
+- `<ellipse>` - Ellipses (converted to TinyVG arc ellipses)
 - `<line>` - Simple lines
 - `<polyline>` - Connected line segments
 - `<polygon>` - Closed polygons
@@ -25,14 +45,14 @@ This document describes the current limitations of the `svgconv` module based on
 ### TinyVG Commands Generated
 - Fill Polygon
 - Fill Rectangles
-- Fill Path
+- Fill Path (with multiple subpath support)
 - Draw Lines
 - Draw Line Loop
 - Draw Line Strip
 - Draw Line Path
 - Outline Fill Polygon
 - Outline Fill Rectangles
-- Outline Fill Path
+- Outline Fill Path (with multiple subpath support)
 
 ## Limitations and Missing Features
 
@@ -63,15 +83,21 @@ This document describes the current limitations of the `svgconv` module based on
 - Close Path (6)
 - Quadratic Bezier (7)
 
-**Current Status:** SVG path parsing supports a subset of SVG path commands.
+**Current Status:** SVG path parsing supports all SVG path commands.
 
-**Missing SVG Path Commands:**
-- Arc commands (`A`, `a`) - Not converted to TinyVG arc circle/ellipse
-- Quadratic bezier (`Q`, `q`, `T`, `t`) - Not converted to TinyVG quadratic bezier
-- Smooth cubic bezier (`S`, `s`) - Not converted
-- Smooth quadratic bezier (`T`, `t`) - Not converted
+**Supported SVG Path Commands:**
+- Move (`M`, `m`) - Full support with multiple subpath handling
+- Line (`L`, `l`) - Full support
+- Horizontal line (`H`, `h`) - Full support
+- Vertical line (`V`, `v`) - Full support
+- Cubic bezier (`C`, `c`) - Full support
+- Smooth cubic bezier (`S`, `s`) - Converted to cubic bezier
+- Quadratic bezier (`Q`, `q`) - Full support
+- Smooth quadratic bezier (`T`, `t`) - Converted to quadratic bezier
+- Arc commands (`A`, `a`) - Converted to TinyVG arc circle/ellipse
+- Close path (`Z`, `z`) - Full support with proper subpath handling
 
-**Note:** Arc commands are commonly used in SVG for rounded corners and circles. Without arc support, shapes may appear jagged or incorrect.
+**Note:** All SVG path commands are now supported and properly converted to their TinyVG equivalents.
 
 ### 3. Text Support
 
