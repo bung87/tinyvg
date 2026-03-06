@@ -212,13 +212,13 @@ proc writeTinyVG*(doc: TinyVGDocument): string =
         of line:
           output.add(fmt("        (line {lineWidthStr} {node.lineX} {node.lineY})\n"))
         of bezier:
-          output.add(fmt("        (bezier {lineWidthStr} ({node.bezierControl1.x} {node.bezierControl1.y}) ({node.bezierControl2.x} {node.bezierControl2.y}) ({node.circleEndPoint.x} {node.circleEndPoint.y}))\n"))
+          output.add(fmt("        (bezier {lineWidthStr} ({node.bezierControl1.x} {node.bezierControl1.y}) ({node.bezierControl2.x} {node.bezierControl2.y}) ({node.bezierEndPoint.x} {node.bezierEndPoint.y}))\n"))
         of quadratic_bezier:
-          output.add(fmt("        (quadratic_bezier {lineWidthStr} ({node.quadControl.x} {node.quadControl.y}) ({node.circleEndPoint.x} {node.circleEndPoint.y}))\n"))
+          output.add(fmt("        (quadratic_bezier {lineWidthStr} ({node.quadControl.x} {node.quadControl.y}) ({node.quadEndPoint.x} {node.quadEndPoint.y}))\n"))
         of arc_ellipse:
-          var largeArcStr = if node.circleLargeArc: "true" else: "false"
-          var sweepStr = if node.circleSweep: "true" else: "false"
-          output.add(fmt("        (arc_ellipse {lineWidthStr} {node.arcRadiusX} {node.arcRadiusY} {node.arcAngle} {largeArcStr} {sweepStr} ({node.circleEndPoint.x} {node.circleEndPoint.y}))\n"))
+          var largeArcStr = if node.arcLargeArc: "true" else: "false"
+          var sweepStr = if node.arcSweep: "true" else: "false"
+          output.add(fmt("        (arc_ellipse {lineWidthStr} {node.arcRadiusX} {node.arcRadiusY} {node.arcAngle} {largeArcStr} {sweepStr} ({node.arcEndPoint.x} {node.arcEndPoint.y}))\n"))
         of arc_circle:
           var largeArcStr = if node.circleLargeArc: "true" else: "false"
           var sweepStr = if node.circleSweep: "true" else: "false"
@@ -254,13 +254,13 @@ proc writeTinyVG*(doc: TinyVGDocument): string =
         of line:
           output.add(fmt("        (line {lineWidthStr} {node.lineX} {node.lineY})\n"))
         of bezier:
-          output.add(fmt("        (bezier {lineWidthStr} ({node.bezierControl1.x} {node.bezierControl1.y}) ({node.bezierControl2.x} {node.bezierControl2.y}) ({node.circleEndPoint.x} {node.circleEndPoint.y}))\n"))
+          output.add(fmt("        (bezier {lineWidthStr} ({node.bezierControl1.x} {node.bezierControl1.y}) ({node.bezierControl2.x} {node.bezierControl2.y}) ({node.bezierEndPoint.x} {node.bezierEndPoint.y}))\n"))
         of quadratic_bezier:
-          output.add(fmt("        (quadratic_bezier {lineWidthStr} ({node.quadControl.x} {node.quadControl.y}) ({node.circleEndPoint.x} {node.circleEndPoint.y}))\n"))
+          output.add(fmt("        (quadratic_bezier {lineWidthStr} ({node.quadControl.x} {node.quadControl.y}) ({node.quadEndPoint.x} {node.quadEndPoint.y}))\n"))
         of arc_ellipse:
-          var largeArcStr = if node.circleLargeArc: "true" else: "false"
-          var sweepStr = if node.circleSweep: "true" else: "false"
-          output.add(fmt("        (arc_ellipse {lineWidthStr} {node.arcRadiusX} {node.arcRadiusY} {node.arcAngle} {largeArcStr} {sweepStr} ({node.circleEndPoint.x} {node.circleEndPoint.y}))\n"))
+          var largeArcStr = if node.arcLargeArc: "true" else: "false"
+          var sweepStr = if node.arcSweep: "true" else: "false"
+          output.add(fmt("        (arc_ellipse {lineWidthStr} {node.arcRadiusX} {node.arcRadiusY} {node.arcAngle} {largeArcStr} {sweepStr} ({node.arcEndPoint.x} {node.arcEndPoint.y}))\n"))
         of arc_circle:
           var largeArcStr = if node.circleLargeArc: "true" else: "false"
           var sweepStr = if node.circleSweep: "true" else: "false"
@@ -308,13 +308,13 @@ proc writeTinyVG*(doc: TinyVGDocument): string =
         of line:
           output.add(fmt("        (line {lineWidthStr} {node.lineX} {node.lineY})\n"))
         of bezier:
-          output.add(fmt("        (bezier {lineWidthStr} ({node.bezierControl1.x} {node.bezierControl1.y}) ({node.bezierControl2.x} {node.bezierControl2.y}) ({node.circleEndPoint.x} {node.circleEndPoint.y}))\n"))
+          output.add(fmt("        (bezier {lineWidthStr} ({node.bezierControl1.x} {node.bezierControl1.y}) ({node.bezierControl2.x} {node.bezierControl2.y}) ({node.bezierEndPoint.x} {node.bezierEndPoint.y}))\n"))
         of quadratic_bezier:
-          output.add(fmt("        (quadratic_bezier {lineWidthStr} ({node.quadControl.x} {node.quadControl.y}) ({node.circleEndPoint.x} {node.circleEndPoint.y}))\n"))
+          output.add(fmt("        (quadratic_bezier {lineWidthStr} ({node.quadControl.x} {node.quadControl.y}) ({node.quadEndPoint.x} {node.quadEndPoint.y}))\n"))
         of arc_ellipse:
-          var largeArcStr = if node.circleLargeArc: "true" else: "false"
-          var sweepStr = if node.circleSweep: "true" else: "false"
-          output.add(fmt("        (arc_ellipse {lineWidthStr} {node.arcRadiusX} {node.arcRadiusY} {node.arcAngle} {largeArcStr} {sweepStr} ({node.circleEndPoint.x} {node.circleEndPoint.y}))\n"))
+          var largeArcStr = if node.arcLargeArc: "true" else: "false"
+          var sweepStr = if node.arcSweep: "true" else: "false"
+          output.add(fmt("        (arc_ellipse {lineWidthStr} {node.arcRadiusX} {node.arcRadiusY} {node.arcAngle} {largeArcStr} {sweepStr} ({node.arcEndPoint.x} {node.arcEndPoint.y}))\n"))
         of arc_circle:
           var largeArcStr = if node.circleLargeArc: "true" else: "false"
           var sweepStr = if node.circleSweep: "true" else: "false"

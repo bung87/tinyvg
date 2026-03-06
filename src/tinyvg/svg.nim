@@ -524,8 +524,10 @@ proc parsePathData*(pathData: string): seq[TinyVGPathNode] {.raises: [SvgError].
     cmd: PathCommand
     numbers: seq[float32]
     currentX, currentY: float32
+    subpathStartX, subpathStartY: float32  # Track subpath start for close command
     lastCpx2, lastCpy2: float32  # Last cubic bezier control point 2 (for smooth curves)
     nodes: seq[TinyVGPathNode]
+    hasMoved = false  # Track if we've had at least one move command
 
   template finishNumber() =
     if numberStart > 0 and p > numberStart:
@@ -556,8 +558,6 @@ proc parsePathData*(pathData: string): seq[TinyVGPathNode] {.raises: [SvgError].
           
           case cmd:
           of pcMove, pcRMove:
-            if i > 0:
-              cmd = if rel: pcRLine else: pcLine
             let x = numbers[i]
             let y = numbers[i + 1]
             if rel:
@@ -566,7 +566,14 @@ proc parsePathData*(pathData: string): seq[TinyVGPathNode] {.raises: [SvgError].
             else:
               currentX = x
               currentY = y
-            # Use line with move flag - we'll use a line to the same point
+            # Record subpath start for close command
+            subpathStartX = currentX
+            subpathStartY = currentY
+            # If this is not the first move command, add a close to end the previous subpath
+            if hasMoved:
+              nodes.add(newPathClose())
+            hasMoved = true
+            # Add line to the new position (this acts as the move)
             nodes.add(newPathLine(currentX, currentY))
             i += 2
           
@@ -718,6 +725,9 @@ proc parsePathData*(pathData: string): seq[TinyVGPathNode] {.raises: [SvgError].
           
           of pcClose:
             nodes.add(newPathClose())
+            # Reset current position to subpath start
+            currentX = subpathStartX
+            currentY = subpathStartY
             i += 0
           
           else:
@@ -742,6 +752,9 @@ proc parsePathData*(pathData: string): seq[TinyVGPathNode] {.raises: [SvgError].
     of 'z', 'Z':
       finishCommand()
       nodes.add(newPathClose())
+      # Reset current position to subpath start
+      currentX = subpathStartX
+      currentY = subpathStartY
     # Absolute commands
     of 'M': finishCommand(); cmd = pcMove
     of 'L': finishCommand(); cmd = pcLine

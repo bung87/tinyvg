@@ -200,11 +200,34 @@ proc convertPath(conv: var SvgConverter, doc: var TinyVGDocument,
     # Find starting point
     var startX, startY: float32
     for node in pathNodes:
-      if node.kind == line:
-        # First line node is typically the move
-        startX = node.lineX
-        startY = node.lineY
-        break
+      case node.kind:
+        of line:
+          # First line node is typically the move
+          startX = node.lineX
+          startY = node.lineY
+          break
+        of bezier:
+          # First bezier node - use its end point as start
+          startX = node.bezierEndPoint.x
+          startY = node.bezierEndPoint.y
+          break
+        of quadratic_bezier:
+          # First quadratic bezier node - use its end point as start
+          startX = node.quadEndPoint.x
+          startY = node.quadEndPoint.y
+          break
+        of arc_ellipse:
+          # First arc node - use its end point as start
+          startX = node.arcEndPoint.x
+          startY = node.arcEndPoint.y
+          break
+        of arc_circle:
+          # First arc circle node - use its end point as start
+          startX = node.circleEndPoint.x
+          startY = node.circleEndPoint.y
+          break
+        else:
+          discard
     
     if fillColor >= 0 and strokeColor >= 0 and elem.strokeWidth > 0:
       doc.addOutlineFillPath(

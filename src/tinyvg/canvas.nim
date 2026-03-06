@@ -120,6 +120,7 @@ proc generatePathNodeCode(renderer: var CanvasRenderer, node: TinyVGPathNode, ne
       # Horizontal line to x, keeping current y
       if needMoveTo:
         renderer.line(fmt("ctx.moveTo({node.horizX}, curY);"))
+        renderer.line(fmt("subpathStartX = {node.horizX}; subpathStartY = curY;"))
         needMoveTo = false
       else:
         renderer.line(fmt("ctx.lineTo({node.horizX}, curY);"))
@@ -128,18 +129,25 @@ proc generatePathNodeCode(renderer: var CanvasRenderer, node: TinyVGPathNode, ne
       # Vertical line to y, keeping current x
       if needMoveTo:
         renderer.line(fmt("ctx.moveTo(curX, {node.vertY});"))
+        renderer.line(fmt("subpathStartX = curX; subpathStartY = {node.vertY};"))
         needMoveTo = false
       else:
         renderer.line(fmt("ctx.lineTo(curX, {node.vertY});"))
       renderer.line(fmt("curY = {node.vertY};"))
     of line:
       # Line to (x, y) - use moveTo if after close, otherwise lineTo
+      # Skip zero-length lines (often from move commands)
       if needMoveTo:
         renderer.line(fmt("ctx.moveTo({node.lineX}, {node.lineY});"))
+        renderer.line(fmt("subpathStartX = {node.lineX}; subpathStartY = {node.lineY};"))
         needMoveTo = false
+        renderer.line(fmt("curX = {node.lineX}; curY = {node.lineY};"))
       else:
-        renderer.line(fmt("ctx.lineTo({node.lineX}, {node.lineY});"))
-      renderer.line(fmt("curX = {node.lineX}; curY = {node.lineY};"))
+        # Only draw line if target is different from current position
+        renderer.line(fmt("if (curX !== {node.lineX} || curY !== {node.lineY}) {{"))
+        renderer.line(fmt("  ctx.lineTo({node.lineX}, {node.lineY});"))
+        renderer.line("}")
+        renderer.line(fmt("curX = {node.lineX}; curY = {node.lineY};"))
     of bezier:
       # Cubic Bezier curve
       renderer.line(fmt("ctx.bezierCurveTo(") &
@@ -170,8 +178,9 @@ proc generatePathNodeCode(renderer: var CanvasRenderer, node: TinyVGPathNode, ne
       renderer.line(fmt("curX = {node.circleEndPoint.x}; curY = {node.circleEndPoint.y};"))
       needMoveTo = false
     of close:
-      # Close path
+      # Close path - canvas closePath() returns to subpath start
       renderer.line("ctx.closePath();")
+      renderer.line("curX = subpathStartX; curY = subpathStartY;")
       needMoveTo = true  # Next line operation should be moveTo
 
 proc generateRenderCommands*(doc: TinyVGDocument; ctxName: string = "ctx"; renderer: var CanvasRenderer) =
@@ -284,6 +293,8 @@ proc generateRenderCommands*(doc: TinyVGDocument; ctxName: string = "ctx"; rende
         renderer.line("ctx.beginPath();")
         renderer.line(fmt("var curX = {cmd.startPoint.x};"))
         renderer.line(fmt("var curY = {cmd.startPoint.y};"))
+        renderer.line(fmt("var subpathStartX = {cmd.startPoint.x};"))
+        renderer.line(fmt("var subpathStartY = {cmd.startPoint.y};"))
         renderer.line("ctx.moveTo(curX, curY);")
         
         var needMoveTo = false  # First node already has moveTo from initialization
@@ -370,41 +381,8 @@ proc renderToCanvas*(doc: TinyVGDocument): string =
   renderer.line("// Step 4: Compute start and sweep angles")
   renderer.line("var theta1 = Math.atan2((y1p - cyp) / ry, (x1p - cxp) / rx);")
   renderer.line("var theta2 = Math.atan2((-y1p - cyp) / ry, (-x1p - cxp) / rx);")
-  renderer.line("var deltaTheta = theta2 - theta1;")
-  renderer.line("if (!sweep && deltaTheta > 0) deltaTheta -= 2 * Math.PI;")
-  renderer.line("if (sweep && deltaTheta < 0) deltaTheta += 2 * Math.PI;")
-  renderer.line("// Approximate with bezier curves")
-  renderer.line("var segments = Math.ceil(Math.abs(deltaTheta) / (Math.PI / 2));")
-  renderer.line("segments = Math.max(1, segments);")
-  renderer.line("var eta1 = theta1;")
-  renderer.line("var cosEta = Math.cos(eta1);")
-  renderer.line("var sinEta = Math.sin(eta1);")
-  renderer.line("var epX = cosPhi * rx * cosEta - sinPhi * ry * sinEta + cx;")
-  renderer.line("var epY = sinPhi * rx * cosEta + cosPhi * ry * sinEta + cy;")
-  renderer.line("var alpha = Math.sin(Math.abs(deltaTheta) / segments / 2) * 4 / 3;")
-  renderer.line("for (var i = 0; i < segments; i++) {")
-  renderer.incIndent()
-  renderer.line("var eta2 = eta1 + deltaTheta / segments;")
-  renderer.line("var cosEta2 = Math.cos(eta2);")
-  renderer.line("var sinEta2 = Math.sin(eta2);")
-  renderer.line("var epX2 = cosPhi * rx * cosEta2 - sinPhi * ry * sinEta2 + cx;")
-  renderer.line("var epY2 = sinPhi * rx * cosEta2 + cosPhi * ry * sinEta2 + cy;")
-  renderer.line("var dX = -cosPhi * rx * sinEta - sinPhi * ry * cosEta;")
-  renderer.line("var dY = -sinPhi * rx * sinEta + cosPhi * ry * cosEta;")
-  renderer.line("var cp1x = epX + alpha * dX;")
-  renderer.line("var cp1y = epY + alpha * dY;")
-  renderer.line("dX = -cosPhi * rx * sinEta2 - sinPhi * ry * cosEta2;")
-  renderer.line("dY = -sinPhi * rx * sinEta2 + cosPhi * ry * cosEta2;")
-  renderer.line("var cp2x = epX2 - alpha * dX;")
-  renderer.line("var cp2y = epY2 - alpha * dY;")
-  renderer.line("ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, epX2, epY2);")
-  renderer.line("eta1 = eta2;")
-  renderer.line("cosEta = cosEta2;")
-  renderer.line("sinEta = sinEta2;")
-  renderer.line("epX = epX2;")
-  renderer.line("epY = epY2;")
-  renderer.decIndent()
-  renderer.line("}")
+  renderer.line("// Use native canvas ellipse method for smooth rendering")
+  renderer.line("ctx.ellipse(cx, cy, rx, ry, phiRad, theta1, theta2, !sweep);")
   renderer.decIndent()
   renderer.line("}")
   renderer.line("")
